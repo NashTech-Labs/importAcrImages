@@ -1,0 +1,54 @@
+parameters:
+
+  - name: templateDisplayName
+    type: string
+    default: "Import Image From Previous Registry"
+
+  - name: targetContainerRegistry
+    type: string
+
+  - name: sourceContainerRegistry
+    type: string
+  
+  - name : imageRepository
+    type: string
+    
+  - name: importImage
+    type: boolean
+    default: true
+
+  - name: sourceImageTag
+    type: string
+    default: "latest"
+
+  - name: azureSubscription
+    type: string
+
+
+
+steps:
+- task: AzureCLI@2
+  displayName: ${{ parameters.templateDisplayName }}
+  condition: and(succeeded(), ne('${{ parameters.importImage }}', 'false'))
+  retryCountOnTaskFailure: 5
+  inputs:
+    azureSubscription: ${{ parameters.azureSubscription }}
+    scriptType: pscore
+    scriptLocation: inlineScript
+    inlineScript: |
+      $targetContainerRegistry = "${{ parameters.targetContainerRegistry }}"
+      $sourceImage = "${{ parameters.sourceContainerRegistry }}.azurecr.io/${{ parameters.imageRepository }}:${{ parameters.sourceImageTag }}"
+      $targetImage = "${{ parameters.imageRepository }}:${{ parameters.sourceImageTag }}"
+
+      
+      $result = az acr repository show -n $targetContainerRegistry --image $targetImage
+      if (-not $result) {
+        Write-Host "Image $targetImage does not exist in $targetContainerRegistry."
+        Write-Host "Importing image from $sourceImage..."
+        Write-Host "tContainerRegistry is ..." $env:ENVIRONMENT_CONTAINERREGISTRY
+        Write-Host "Importing image tag $(sourceImageTag)..."
+        az acr import --name $targetContainerRegistry --source $sourceImage --image $targetImage --username $userName --password $password
+      }
+      else {
+        Write-Host "Image $targetImage already exists in $targetContainerRegistry."
+      }
